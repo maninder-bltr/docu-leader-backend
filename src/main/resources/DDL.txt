@@ -1,0 +1,106 @@
+CREATE EXTENSION IF NOT EXISTS vector;
+
+CREATE TABLE public.users (
+	id uuid DEFAULT gen_random_uuid() NOT NULL,
+	email varchar(255) NOT NULL,
+	password_hash varchar(255) NOT NULL,
+	"role" varchar(50) DEFAULT 'USER'::character varying NOT NULL,
+	created_at int8 NOT NULL,
+	updated_at int8 NOT NULL,
+	username varchar(255) NOT NULL,
+	CONSTRAINT users_email_key UNIQUE (email),
+	CONSTRAINT users_pkey PRIMARY KEY (id)
+);
+
+
+-- public.documents definition
+
+-- Drop table
+
+-- DROP TABLE public.documents;
+
+CREATE TABLE public.documents (
+	id uuid DEFAULT gen_random_uuid() NOT NULL,
+	file_name varchar(255) NOT NULL,
+	file_path varchar(512) NOT NULL,
+	document_type varchar(50) NULL,
+	status varchar(20) NOT NULL,
+	created_at int8 NOT NULL,
+	updated_at int8 NOT NULL,
+	user_id uuid NOT NULL,
+	CONSTRAINT documents_pkey PRIMARY KEY (id),
+	CONSTRAINT fk_documents_user FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_documents_status ON public.documents USING btree (status);
+CREATE INDEX idx_documents_user_id ON public.documents USING btree (user_id);
+
+
+-- public.invoices definition
+
+-- Drop table
+
+-- DROP TABLE public.invoices;
+
+CREATE TABLE public.invoices (
+	id uuid DEFAULT gen_random_uuid() NOT NULL,
+	document_id uuid NOT NULL,
+	vendor_name varchar(255) NULL,
+	invoice_number varchar(100) NULL,
+	issue_date int8 NULL,
+	due_date int8 NULL,
+	total_amount numeric(15, 2) NULL,
+	tax_amount numeric(15, 2) NULL,
+	status varchar(20) DEFAULT 'DRAFT'::character varying NOT NULL,
+	created_at int8 NOT NULL,
+	updated_at int8 NOT NULL,
+	user_id uuid NOT NULL,
+	CONSTRAINT invoices_pkey PRIMARY KEY (id),
+	CONSTRAINT fk_invoices_user FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE,
+	CONSTRAINT invoices_document_id_fkey FOREIGN KEY (document_id) REFERENCES public.documents(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_invoices_document_id ON public.invoices USING btree (document_id);
+CREATE INDEX idx_invoices_status ON public.invoices USING btree (status);
+CREATE INDEX idx_invoices_status_due_date ON public.invoices USING btree (status, due_date);
+CREATE INDEX idx_invoices_user_id ON public.invoices USING btree (user_id);
+
+
+-- public.reminder_logs definition
+
+-- Drop table
+
+-- DROP TABLE public.reminder_logs;
+
+CREATE TABLE public.reminder_logs (
+	id uuid DEFAULT gen_random_uuid() NOT NULL,
+	invoice_id uuid NOT NULL,
+	reminder_message text NOT NULL,
+	status varchar(50) NOT NULL,
+	sent_at int8 NOT NULL,
+	created_at int8 NOT NULL,
+	updated_at int8 NOT NULL,
+	CONSTRAINT reminder_logs_pkey PRIMARY KEY (id),
+	CONSTRAINT reminder_logs_invoice_id_fkey FOREIGN KEY (invoice_id) REFERENCES public.invoices(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_reminder_logs_invoice_id ON public.reminder_logs USING btree (invoice_id);
+CREATE INDEX idx_reminder_logs_status ON public.reminder_logs USING btree (status);
+
+
+-- public.document_chunks definition
+
+-- Drop table
+
+-- DROP TABLE public.document_chunks;
+
+CREATE TABLE public.document_chunks (
+	id uuid DEFAULT gen_random_uuid() NOT NULL,
+	document_id uuid NOT NULL,
+	"content" text NOT NULL,
+	embedding public.vector NULL,
+	chunk_index int4 NOT NULL,
+	created_at int8 NOT NULL,
+	updated_at int8 NOT NULL,
+	CONSTRAINT document_chunks_pkey PRIMARY KEY (id),
+	CONSTRAINT document_chunks_document_id_fkey FOREIGN KEY (document_id) REFERENCES public.documents(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_document_chunks_document_id ON public.document_chunks USING btree (document_id);
+CREATE INDEX idx_document_chunks_embedding ON public.document_chunks USING hnsw (embedding vector_cosine_ops);
